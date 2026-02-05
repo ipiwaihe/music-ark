@@ -21,7 +21,7 @@ export default async function Home() {
   if (!user) {
     return (
       <div style={{ textAlign: 'center', marginTop: '100px', fontFamily: 'sans-serif' }}>
-        <h1>音楽版ノアの箱舟</h1>
+        <h1>音楽の箱舟</h1>
         <p>利用するにはログインしてください</p>
         <a href="/login" style={{ display: 'inline-block', marginTop: '20px', padding: '10px 20px', background: 'black', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
           ログイン画面へ

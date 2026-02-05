@@ -11,12 +11,12 @@ export default async function ArtistPage({ params }: Props) {
   const decodedArtistName = decodeURIComponent(artistName)
   const supabase = await createClient()
 
-  // ★変更：集計済みのViewから、このアーティストの曲だけを取得
+  // 集計済みのViewから、このアーティストの曲を取得
   const { data: songList } = await supabase
-    .from('song_counts') // 集計済みView
+    .from('song_counts')
     .select('*')
     .eq('artist', decodedArtistName)
-    .order('vote_count', { ascending: false }) // 人気順
+    .order('vote_count', { ascending: false })
 
   if (!songList) return <div>データが見つかりません</div>
 
@@ -32,6 +32,7 @@ export default async function ArtistPage({ params }: Props) {
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {songList.map((item) => (
           <li key={item.song} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* 左側：曲名と情報 */}
             <div>
               <span style={{ fontWeight: 'bold', fontSize: '1.2em', marginRight: '10px' }}>
                 {item.song}
@@ -41,7 +42,30 @@ export default async function ArtistPage({ params }: Props) {
               </span>
             </div>
             
-            <AddToArkButton artist={decodedArtistName} song={item.song} />
+            {/* 右側：ボタンエリア（YouTubeと箱舟ボタンを横並びにする） */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {/* YouTube検索ボタン */}
+              <a 
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(decodedArtistName + ' ' + item.song)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  fontSize: '12px', 
+                  color: '#d32f2f', // YouTubeっぽい赤色
+                  textDecoration: 'none', 
+                  border: '1px solid #d32f2f', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                ▶ YouTube
+              </a>
+
+              {/* 箱舟に乗せるボタン */}
+              <AddToArkButton artist={decodedArtistName} song={item.song} />
+            </div>
           </li>
         ))}
       </ul>

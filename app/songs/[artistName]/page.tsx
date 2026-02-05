@@ -21,12 +21,13 @@ export default async function ArtistPage({ params }: Props) {
   const viewName = isRealOnly ? 'song_counts_real_users' : 'song_counts'
   
   // 集計済みのViewから、このアーティストの曲を取得
-const { data: songList } = await supabase
+  const { data: songList } = await supabase
     .from(viewName) // 変数でViewを指定
     .select('*')
     .eq('artist', decodedArtistName)
-    .order('vote_count', { ascending: false })
-
+    .order('vote_count', { ascending: false })   // 第1優先：得票数（多い順）
+    .order('last_updated', { ascending: false }) // 第2優先：更新日時（新しい順）
+  
   if (!songList) return <div>データが見つかりません</div>
 
   return (

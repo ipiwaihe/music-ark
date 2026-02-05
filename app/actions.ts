@@ -15,9 +15,9 @@ export async function upsertVote(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { message: 'ログインしてください' }
 
-  const artist = formData.get('artist') as string
-  const song = formData.get('song') as string
-  const comment = formData.get('comment') as string
+  const artist = (formData.get('artist') as string).trim()
+  const song = (formData.get('song') as string).trim()
+  const comment = (formData.get('comment') as string).trim()
 
   // 1. まず、同じアーティストが登録済みかチェック
   const { data: existing } = await supabase

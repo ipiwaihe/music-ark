@@ -15,7 +15,7 @@ export default async function ArtistPage({ params }: Props) {
 
   // ★追加：Cookieを確認
   const cookieStore = await cookies()
-  const isRealOnly = cookieStore.get('filter_mode')?.value === 'real'
+  const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
 
   // ★変更：モードによって使うViewを変える
   const viewName = isRealOnly ? 'song_counts_real_users' : 'song_counts'

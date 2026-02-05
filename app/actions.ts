@@ -75,12 +75,14 @@ export async function toggleFilterMode() {
   const cookieStore = await cookies()
   const currentMode = cookieStore.get('filter_mode')?.value
 
-  // トグル処理（'real' ⇔ なし）
-  if (currentMode === 'real') {
-    cookieStore.delete('filter_mode') // 全表示モード（デフォルト）へ
+  // ロジック反転：
+  // 今が 'all' なら、削除してデフォルト（ユーザのみ）に戻す
+  // 今が デフォルト（ユーザのみ）なら、'all' をセットして全表示にする
+  if (currentMode === 'all') {
+    cookieStore.delete('filter_mode') 
   } else {
-    cookieStore.set('filter_mode', 'real') // 人間のみモードへ
+    cookieStore.set('filter_mode', 'all')
   }
 
-  revalidatePath('/') // 画面を更新
+  revalidatePath('/')
 }

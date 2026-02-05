@@ -8,7 +8,7 @@ export default async function SongsListPage() {
 
   // ★追加：Cookieを確認
   const cookieStore = await cookies()
-  const isRealOnly = cookieStore.get('filter_mode')?.value === 'real'
+  const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
 
   // ★変更：モードによって使うViewを変える
   const viewName = isRealOnly ? 'artist_leaders_real_users' : 'artist_leaders'

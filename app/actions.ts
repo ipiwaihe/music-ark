@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers' // 追加
 
 // ■ 曲を登録または更新する機能
 export async function upsertVote(
@@ -67,4 +68,19 @@ export async function deleteVote(artistName: string) {
     .eq('artist', artistName)
 
   revalidatePath('/')
+}
+
+// ■ フィルター設定を切り替える機能
+export async function toggleFilterMode() {
+  const cookieStore = await cookies()
+  const currentMode = cookieStore.get('filter_mode')?.value
+
+  // トグル処理（'real' ⇔ なし）
+  if (currentMode === 'real') {
+    cookieStore.delete('filter_mode') // 全表示モード（デフォルト）へ
+  } else {
+    cookieStore.set('filter_mode', 'real') // 人間のみモードへ
+  }
+
+  revalidatePath('/') // 画面を更新
 }

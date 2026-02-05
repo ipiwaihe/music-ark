@@ -1,6 +1,8 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import AddToArkButton from '@/components/AddToArkButton'
+import { cookies } from 'next/headers' // ★追加
+import FilterToggleButton from '@/components/FilterToggleButton' // ★追加
 
 type Props = {
   params: Promise<{ artistName: string }>
@@ -11,9 +13,16 @@ export default async function ArtistPage({ params }: Props) {
   const decodedArtistName = decodeURIComponent(artistName)
   const supabase = await createClient()
 
+  // ★追加：Cookieを確認
+  const cookieStore = await cookies()
+  const isRealOnly = cookieStore.get('filter_mode')?.value === 'real'
+
+  // ★変更：モードによって使うViewを変える
+  const viewName = isRealOnly ? 'song_counts_real_users' : 'song_counts'
+  
   // 集計済みのViewから、このアーティストの曲を取得
-  const { data: songList } = await supabase
-    .from('song_counts')
+const { data: songList } = await supabase
+    .from(viewName) // 変数でViewを指定
     .select('*')
     .eq('artist', decodedArtistName)
     .order('vote_count', { ascending: false })
@@ -22,8 +31,13 @@ export default async function ArtistPage({ params }: Props) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ marginBottom: '20px' }}>
+      
+      {/* ナビゲーションエリア */}
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/songs" style={{ textDecoration: 'none', color: '#666' }}>← リストに戻る</Link>
+        
+        {/* ★詳細ページにもスイッチを置いておくと便利 */}
+        <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
 
       <h1>{decodedArtistName}</h1>

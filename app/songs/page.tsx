@@ -1,25 +1,44 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
+import { cookies } from 'next/headers' // ★追加
+import FilterToggleButton from '@/components/FilterToggleButton' // ★追加
 
 export default async function SongsListPage() {
   const supabase = await createClient()
 
+  // ★追加：Cookieを確認
+  const cookieStore = await cookies()
+  const isRealOnly = cookieStore.get('filter_mode')?.value === 'real'
+
+  // ★変更：モードによって使うViewを変える
+  const viewName = isRealOnly ? 'artist_leaders_real_users' : 'artist_leaders'
+
   // ★変更：集計済みのViewから取得するだけ！JSでの計算ロジックは全削除！
   const { data: artistList } = await supabase
-    .from('artist_leaders') // さっき作ったView
+    .from(viewName) // 変数でViewを指定
     .select('*')
-    .order('artist', { ascending: true }) // 名前順
+    .order('artist', { ascending: true })
 
   if (!artistList) return <div>データがありません</div>
 
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ marginBottom: '20px' }}>
+      
+      {/* ナビゲーションエリアをFlexboxで整列 */}
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ textDecoration: 'none', color: '#666' }}>← 自分の箱舟に戻る</Link>
+        
+        {/* ★ここにスイッチを配置 */}
+        <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
       
       <h1>登録アーティスト一覧</h1>
-      <p style={{ marginBottom: '30px' }}>みんなが箱舟に乗せたアーティストたちです。</p>
+      {/* メッセージも少し親切に切り替え */}
+      <p style={{ marginBottom: '30px' }}>
+        {isRealOnly 
+          ? 'ユーザが登録したアーティストのみ表示しています。' 
+          : 'Spotify人気曲データ(手入力)を含む、全てのアーティストを表示しています。'}
+      </p>
 
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {artistList.map((item) => (

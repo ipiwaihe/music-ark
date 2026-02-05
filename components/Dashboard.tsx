@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { upsertVote, deleteVote } from '@/app/actions'
+import Link from 'next/link' // ★追加：リンク機能を使う準備
 
 type Vote = {
   id: number
@@ -130,26 +131,40 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
           </div>
         </form>
       </div>
-
+      
+      {/* --- リスト表示 --- */}
       <h2>あなたの登録リスト（{initialVotes.length}曲）</h2>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {initialVotes.map((vote) => (
           <li key={vote.id} style={{ borderBottom: '1px solid #ddd', padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            
             {/* 左側：アーティストと曲名 */}
             <div 
-              title={vote.comment || 'コメントなし'} // ★ここでツールチップ表示
+              title={vote.comment || 'コメントなし'}
               style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}
             >
-              <span style={{ fontWeight: 'bold', fontSize: '1.1em', whiteSpace: 'nowrap' }}>
+              {/* ★変更：ここをspanからLinkに変えるだけ！ */}
+              <Link 
+                href={`/songs/${encodeURIComponent(vote.artist)}`}
+                style={{ 
+                  fontWeight: 'bold', 
+                  fontSize: '1.1em', 
+                  whiteSpace: 'nowrap',
+                  color: 'black',             // リンクの色（黒にしておく）
+                  textDecoration: 'underline' // リンクっぽく下線をつける
+                }}
+              >
                 {vote.artist}
-              </span>
+              </Link>
+
               <span style={{ color: '#888' }}>/</span>
+              
               <span style={{ fontSize: '1.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {vote.song}
               </span>
             </div>
 
-            {/* 右側：変更ボタン */}
+            {/* 右側：変更ボタン（そのまま） */}
             <button 
               onClick={() => {
                 setArtist(vote.artist)

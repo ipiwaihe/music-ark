@@ -30,14 +30,23 @@ export default async function ArtistPage({ params }: Props) {
   
   if (!songList) return <div>データが見つかりません</div>
 
-  return (
+return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
       
       {/* ナビゲーションエリア */}
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/songs" style={{ textDecoration: 'none', color: '#666' }}>← リストに戻る</Link>
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         
-        {/* ★詳細ページにもスイッチを置いておくと便利 */}
+        {/* 左側：リンクを縦に並べる箱 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Link href="/" style={{ textDecoration: 'none', color: '#666', fontSize: '0.9em' }}>
+            ← 自分の箱舟に戻る
+          </Link>
+          <Link href="/songs" style={{ textDecoration: 'none', color: '#666', fontSize: '0.9em' }}>
+            ← リストに戻る
+          </Link>
+        </div>
+        
+        {/* 右側：スイッチ（そのまま） */}
         <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
 

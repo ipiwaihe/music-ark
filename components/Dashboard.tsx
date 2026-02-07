@@ -2,34 +2,46 @@
 
 import { useState } from 'react'
 import { upsertVote, deleteVote } from '@/app/actions'
-import Link from 'next/link' // ★追加：リンク機能を使う準備
+import Link from 'next/link'
 
 type Vote = {
   id: number
   artist: string
   song: string
   comment: string | null
+  // ▼ 追加
+  is_knowledgeable: boolean 
+  is_passionate: boolean
 }
 
 export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
   const [artist, setArtist] = useState('')
   const [song, setSong] = useState('')
   const [comment, setComment] = useState('')
-  const [isLoading, setIsLoading] = useState(false) // ★追加：連打防止用
+  // ▼ フラグのstate
+  const [isKnowledgeable, setIsKnowledgeable] = useState(false)
+  const [isPassionate, setIsPassionate] = useState(true) // デフォルトはTrue（熱量あり）
 
-  // ★変更：フォーム送信時の処理（より確実な書き方）
+  const [isLoading, setIsLoading] = useState(false)
+
+  // ★フォーム送信時の処理
   async function onSubmitHandler(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault() // 画面のリロードを防ぐ
-    if (isLoading) return // 連打防止
+    e.preventDefault() 
+    if (isLoading) return 
     
     setIsLoading(true)
     
     try {
-      // フォームのデータを吸い出す
       const formData = new FormData(e.currentTarget)
       
-      // 1. 保存実行（上書き禁止モード）
-      console.log('送信開始:', Object.fromEntries(formData)) // 動作確認ログ
+      // ★重要：チェックボックスの状態を明示的にFormDataに上書きする
+      // (HTMLの標準動作だと、チェックOFFの時にデータが送信されないため)
+      formData.set('is_knowledgeable', isKnowledgeable.toString()) // "true" or "false"
+      formData.set('is_passionate', isPassionate.toString())       // "true" or "false"
+      
+      console.log('送信データ:', Object.fromEntries(formData))
+
+      // 1. 保存実行
       const result = await upsertVote(formData, false)
 
       // 2. 結果に応じた処理
@@ -50,7 +62,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
       }
     } catch (err) {
       console.error(err)
-      alert('予期せぬエラーが発生しました。コンソールを確認してください。')
+      alert('予期せぬエラーが発生しました。')
     } finally {
       setIsLoading(false)
     }
@@ -70,55 +82,105 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     }
   }
 
+  // フォームのリセット
   function resetForm() {
     setArtist('')
     setSong('')
     setComment('')
+    // ★フラグもデフォルトに戻す
+    setIsKnowledgeable(false)
+    setIsPassionate(true)
   }
 
   return (
     <div>
       <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
-        {/* ★ここを変更：action={...} ではなく onSubmit={...} にする */}
-        <form onSubmit={onSubmitHandler} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <form onSubmit={onSubmitHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           
-          <label style={{fontSize: '12px', fontWeight: 'bold'}}>アーティスト名</label>
-          <input 
-            name="artist" 
-            value={artist} 
-            onChange={(e) => setArtist(e.target.value)} 
-            placeholder="例: The Beatles" 
-            required 
-            maxLength={100} // ★追加：100文字まで
-            style={{ padding: '10px', fontSize: '16px' }} 
-          />
+          {/* アーティスト名 */}
+          <div>
+            <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>アーティスト名</label>
+            <input 
+              name="artist" 
+              value={artist} 
+              onChange={(e) => setArtist(e.target.value)} 
+              placeholder="例: The Beatles" 
+              required 
+              maxLength={100}
+              style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }} 
+            />
+          </div>
           
-          <label style={{fontSize: '12px', fontWeight: 'bold'}}>曲名</label>
-          <input 
-            name="song" 
-            value={song} 
-            onChange={(e) => setSong(e.target.value)} 
-            placeholder="例: Across the Universe" 
-            required 
-            maxLength={100} // ★追加：100文字まで
-            style={{ padding: '10px', fontSize: '16px' }} 
-          />
-          
-          <label style={{fontSize: '12px', fontWeight: 'bold'}}>コメント</label>
-          <textarea 
-            name="comment" 
-            value={comment} 
-            onChange={(e) => setComment(e.target.value)} 
-            placeholder="推薦コメント" 
-            maxLength={140} // ★追加：140文字まで
-            style={{ padding: '10px', fontSize: '16px', height: '80px' }} 
-          />
+          {/* 曲名 */}
+          <div>
+            <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>曲名</label>
+            <input 
+              name="song" 
+              value={song} 
+              onChange={(e) => setSong(e.target.value)} 
+              placeholder="例: Across the Universe" 
+              required 
+              maxLength={100}
+              style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }} 
+            />
+          </div>
 
+          {/* ▼▼▼ 追加：知識・熱量フラグ ▼▼▼ */}
+          <div style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            
+            {/* 1. 知識フラグ */}
+            <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'flex-start' }}>
+              <input 
+                type="checkbox" 
+                checked={isKnowledgeable}
+                onChange={(e) => setIsKnowledgeable(e.target.checked)}
+                style={{ transform: 'scale(1.2)', marginTop: '3px' }}
+              />
+              <span style={{ fontSize: '14px', color: isKnowledgeable ? 'black' : '#888', fontWeight: isKnowledgeable ? 'bold' : 'normal' }}>
+                {isKnowledgeable 
+                  ? "このアーティストについて、ファンである・ある程度曲を知っている。" 
+                  : "このアーティストについて、あまり詳しくない（あまり曲を知らない）。"}
+              </span>
+            </label>
+
+            <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: 0 }} />
+
+            {/* 2. 熱量フラグ */}
+            <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'flex-start' }}>
+              <input 
+                type="checkbox" 
+                checked={isPassionate}
+                onChange={(e) => setIsPassionate(e.target.checked)}
+                style={{ transform: 'scale(1.2)', marginTop: '3px' }}
+              />
+              <span style={{ fontSize: '14px', color: isPassionate ? 'black' : '#888', fontWeight: isPassionate ? 'bold' : 'normal' }}>
+                {isPassionate 
+                  ? "この曲は、結構こだわりのお気に入り曲。" 
+                  : "1曲選ぶならこれだけど、そこまでこだわりは無いかも。"}
+              </span>
+            </label>
+          </div>
+          {/* ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ */}
+
+          {/* コメント */}
+          <div>
+            <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>コメント</label>
+            <textarea 
+              name="comment" 
+              value={comment} 
+              onChange={(e) => setComment(e.target.value)} 
+              placeholder="推薦コメント（140文字まで）" 
+              maxLength={140}
+              style={{ padding: '10px', fontSize: '16px', height: '80px', width: '100%', boxSizing: 'border-box' }} 
+            />
+          </div>
+
+          {/* ボタンエリア */}
           <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
             <button 
               type="submit" 
-              disabled={isLoading} // 送信中はボタンを押せないようにする
-              style={{ flex: 2, padding: '12px', background: isLoading ? '#999' : 'black', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              disabled={isLoading}
+              style={{ flex: 2, padding: '12px', background: isLoading ? '#999' : 'black', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}
             >
               {isLoading ? '通信中...' : '箱舟に乗せる（保存）'}
             </button>
@@ -127,7 +189,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               type="button" 
               onClick={handleDelete}
               disabled={!artist || isLoading}
-              style={{ flex: 1, padding: '12px', background: (!artist || isLoading) ? '#ccc' : '#d32f2f', color: 'white', border: 'none', cursor: 'pointer' }}
+              style={{ flex: 1, padding: '12px', background: (!artist || isLoading) ? '#ccc' : '#d32f2f', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
               降ろす
             </button>
@@ -146,15 +208,14 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               title={vote.comment || 'コメントなし'}
               style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}
             >
-              {/* ★変更：ここをspanからLinkに変えるだけ！ */}
               <Link 
                 href={`/songs/${encodeURIComponent(vote.artist)}`}
                 style={{ 
                   fontWeight: 'bold', 
                   fontSize: '1.1em', 
                   whiteSpace: 'nowrap',
-                  color: 'black',             // リンクの色（黒にしておく）
-                  textDecoration: 'underline' // リンクっぽく下線をつける
+                  color: 'black',
+                  textDecoration: 'underline'
                 }}
               >
                 {vote.artist}
@@ -165,14 +226,25 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               <span style={{ fontSize: '1.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {vote.song}
               </span>
+              
+              {/* ▼ フラグ状態をアイコン等で小さく表示（自分用確認） */}
+              <span style={{ fontSize: '0.8em', marginLeft: '5px', color: '#666' }}>
+                {vote.is_knowledgeable ? '🎓' : ''}
+                {vote.is_passionate ? '❤️' : ''}
+              </span>
+
             </div>
 
-            {/* 右側：変更ボタン（そのまま） */}
+            {/* 右側：変更ボタン */}
             <button 
               onClick={() => {
                 setArtist(vote.artist)
                 setSong(vote.song)
                 setComment(vote.comment || '')
+                // ★編集時、フラグの状態もフォームに反映させる
+                setIsKnowledgeable(vote.is_knowledgeable)
+                setIsPassionate(vote.is_passionate)
+                
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
               style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap', marginLeft: '10px', background: '#eee', border: '1px solid #ccc', borderRadius: '4px' }}

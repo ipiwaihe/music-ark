@@ -18,6 +18,8 @@ export async function upsertVote(
   const artist = (formData.get('artist') as string).trim()
   const song = (formData.get('song') as string).trim()
   const comment = (formData.get('comment') as string).trim()
+  const isKnowledgeable = formData.get('is_knowledgeable') === 'true'
+  const isPassionate = formData.get('is_passionate') === 'true'
 
   // 1. まず、同じアーティストが登録済みかチェック
   const { data: existing } = await supabase
@@ -44,6 +46,8 @@ export async function upsertVote(
       artist,
       song,
       comment,
+      is_knowledgeable: isKnowledgeable,
+      is_passionate: isPassionate,
       updated_at: new Date().toISOString(), // 更新日時
     }, { onConflict: 'user_id, artist' })
 

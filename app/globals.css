@@ -1,12 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  /* ここで色を固定します */
+  /* ▼スマホに「このサイトはライトモード専用だよ」と伝える設定 */
+  color-scheme: light;
+
+  /* ▼色の設定（常に白背景・黒文字用の色にする） */
+  --background: #ffffff;
+  --foreground: #000000;
+  
+  /* 念のため古い変数が残っていても黒になるように設定 */
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 255, 255, 255;
   --background-end-rgb: 255, 255, 255;
 }
 
+/* ▼Tailwindの設定（そのまま残す） */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -14,18 +22,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ★重要★ 
+   ここに書いてあった @media (prefers-color-scheme: dark) { ... } 
+   というブロックを削除しました。これが「白文字」の犯人でした。
+*/
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: white; /* 強制的に白にする */
+  /* 背景は白、文字は黒。!important で強制する */
+  color: #000000 !important;
+  background: #ffffff !important;
+  
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
 }
- 

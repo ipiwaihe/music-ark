@@ -89,6 +89,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
             onChange={(e) => setArtist(e.target.value)} 
             placeholder="例: The Beatles" 
             required 
+            maxLength={100} // ★追加：100文字まで
             style={{ padding: '10px', fontSize: '16px' }} 
           />
           
@@ -99,6 +100,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
             onChange={(e) => setSong(e.target.value)} 
             placeholder="例: Across the Universe" 
             required 
+            maxLength={100} // ★追加：100文字まで
             style={{ padding: '10px', fontSize: '16px' }} 
           />
           
@@ -108,6 +110,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
             value={comment} 
             onChange={(e) => setComment(e.target.value)} 
             placeholder="推薦コメント" 
+            maxLength={400} // ★追加：400文字まで
             style={{ padding: '10px', fontSize: '16px', height: '80px' }} 
           />
 

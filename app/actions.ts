@@ -90,3 +90,28 @@ export async function toggleFilterMode() {
 
   revalidatePath('/')
 }
+
+// ▼▼▼ 追加: フラグ単体を切り替える専用アクション ▼▼▼
+export async function toggleVoteFlag(voteId: number, field: 'is_knowledgeable' | 'is_passionate', newValue: boolean) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { status: 'error', message: 'ログインが必要です' }
+
+  const { error } = await supabase
+    .from('votes')
+    .update({ 
+      [field]: newValue, // 指定されたフィールドだけ更新
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', voteId)
+    .eq('user_id', user.id) // 自分のデータか必ず確認
+
+  if (error) {
+    console.error(error)
+    return { status: 'error', message: '更新失敗' }
+  }
+
+  revalidatePath('/')
+  return { status: 'success' }
+}

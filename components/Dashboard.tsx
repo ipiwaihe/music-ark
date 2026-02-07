@@ -20,7 +20,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
   const [comment, setComment] = useState('')
   // ▼ フラグのstate
   const [isKnowledgeable, setIsKnowledgeable] = useState(false)
-  const [isPassionate, setIsPassionate] = useState(true) // デフォルトはTrue（熱量あり）
+  const [isPassionate, setIsPassionate] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
 
@@ -82,6 +82,16 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     }
   }
 
+  // ★追加：リスト上のアイコンクリックでフラグを切り替える処理
+  async function handleToggle(voteId: number, field: 'is_knowledgeable' | 'is_passionate', currentValue: boolean) {
+    // 楽観的UI更新（サーバー応答を待たずに成功したと仮定しても良いが、今回はシンプルにサーバー処理後にリロードされるのを待つ）
+    // ※Next.jsのServer Actions + revalidatePathなら自動で画面が最新になります
+    const result = await toggleVoteFlag(voteId, field, !currentValue)
+    if (result.status === 'error') {
+      alert('更新できませんでした')
+    }
+  }
+
   // フォームのリセット
   function resetForm() {
     setArtist('')
@@ -89,7 +99,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     setComment('')
     // ★フラグもデフォルトに戻す
     setIsKnowledgeable(false)
-    setIsPassionate(true)
+    setIsPassionate(false)
   }
 
   return (
@@ -227,12 +237,35 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
                 {vote.song}
               </span>
               
-              {/* ▼ フラグ状態をアイコン等で小さく表示（自分用確認） */}
-              <span style={{ fontSize: '0.8em', marginLeft: '5px', color: '#666' }}>
-                {vote.is_knowledgeable ? '🎓' : ''}
-                {vote.is_passionate ? '❤️' : ''}
-              </span>
+              {/* ▼▼▼ 修正: クリックで切り替わるアイコン群 ▼▼▼ */}
+              <div style={{ display: 'flex', gap: '4px', marginLeft: '10px' }}>
+                {/* 知識フラグ */}
+                <button
+                  type="button"
+                  onClick={() => handleToggle(vote.id, 'is_knowledgeable', vote.is_knowledgeable)}
+                  title={vote.is_knowledgeable ? "知識あり" : "詳しくない"}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em',
+                    opacity: vote.is_knowledgeable ? 1 : 0.3 // Falseなら薄くする
+                  }}
+                >
+                  {vote.is_knowledgeable ? '🎓' : '✖'}
+                </button>
 
+                {/* 熱量フラグ */}
+                <button
+                  type="button"
+                  onClick={() => handleToggle(vote.id, 'is_passionate', vote.is_passionate)}
+                  title={vote.is_passionate ? "熱量あり" : "こだわり薄"}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em',
+                    opacity: vote.is_passionate ? 1 : 0.3 // Falseなら薄くする
+                  }}
+                >
+                  {vote.is_passionate ? '❤️' : '✖'}
+                </button>
+              </div>
+              {/* ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ */}
             </div>
 
             {/* 右側：変更ボタン */}

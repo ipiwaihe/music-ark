@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { upsertVote, deleteVote } from '@/app/actions'
+import { upsertVote, deleteVote, toggleVoteFlag } from '@/app/actions' // ★追加
 import Link from 'next/link'
 
 type Vote = {

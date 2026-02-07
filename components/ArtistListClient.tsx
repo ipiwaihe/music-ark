@@ -20,14 +20,44 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
   const [filterUnvoted, setFilterUnvoted] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
+  // ■ 1. 並び替え用の「裏の名前」を作る関数
+  // "The Beatles" → "beatles, the" に変換します
+  const getSortName = (name: string) => {
+    const lowerName = name.toLowerCase() // まず小文字にする
+    
+    // "the " (the＋スペース) で始まる場合
+    if (lowerName.startsWith('the ')) {
+      // "the " を取り除き、後ろに ", the" をつける
+      return lowerName.slice(4) + ', the'
+    }
+    
+    // それ以外はそのまま返す
+    return lowerName
+  }
+
+  // ■ 2. フィルタリング ＆ ソート処理
   const filteredArtists = useMemo(() => {
-    let result = initialArtists
+    let result = [...initialArtists] // 元のデータを壊さないようコピー
+
+    // (A) 未登録フィルター
     if (filterUnvoted) {
       result = result.filter(item => !myVotedArtists.includes(item.artist))
     }
+    
+    // (B) ソート処理（"beatles, the" の形にして比較）
+    result.sort((a, b) => {
+      const nameA = getSortName(a.artist)
+      const nameB = getSortName(b.artist)
+      
+      if (nameA < nameB) return -1
+      if (nameA > nameB) return 1
+      return 0
+    })
+
     return result
   }, [initialArtists, myVotedArtists, filterUnvoted])
 
+  // ■ ページネーション計算
   const totalPages = Math.ceil(filteredArtists.length / ITEMS_PER_PAGE)
   
   const currentArtists = filteredArtists.slice(
@@ -40,7 +70,7 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
     setCurrentPage(1)
   }
 
-  // ★追加：ページネーション部品を生成する関数（再利用するため）
+  // ■ ページネーション部品（上でも下でも使えるように関数化）
   const renderPagination = () => {
     if (totalPages <= 1) return null
 
@@ -50,18 +80,24 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
           const startIdx = (page - 1) * ITEMS_PER_PAGE
           const endIdx = Math.min(page * ITEMS_PER_PAGE, filteredArtists.length) - 1
           
-          // データが存在するか確認してから頭文字を取得
-          const startChar = filteredArtists[startIdx]?.artist ? filteredArtists[startIdx].artist.charAt(0) : '?'
-          const endChar = filteredArtists[endIdx]?.artist ? filteredArtists[endIdx].artist.charAt(0) : '?'
-          
+          // ▼▼▼ ここがポイント ▼▼▼
+          // そのページの先頭と末尾のデータの「裏の名前」を取得
+          const startData = filteredArtists[startIdx]
+          const endData = filteredArtists[endIdx]
+
+          // "The Beatles" なら "beatles, the" に変換してから、頭文字 "b" を取る
+          const startChar = startData ? getSortName(startData.artist).charAt(0).toUpperCase() : '?'
+          const endChar = endData ? getSortName(endData.artist).charAt(0).toUpperCase() : '?'
+          // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
           return (
             <button
               key={page}
               onClick={() => {
                 setCurrentPage(page)
-                // ページ切り替え時に上までスクロール（お好みで削除可）
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
+              // ツールチップには "B ... C" のように表示される
               title={`${startChar} ... ${endChar}`} 
               style={{
                 padding: '8px 12px',
@@ -99,7 +135,7 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
         </span>
       </div>
 
-      {/* ★追加：リストの上にもページネーションを表示 */}
+      {/* 上部ページネーション */}
       {renderPagination()}
 
       {/* --- リスト表示 --- */}
@@ -108,6 +144,7 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
           <li key={item.artist} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Link href={`/songs/${encodeURIComponent(item.artist)}`} style={{ fontWeight: 'bold', fontSize: '1.2em', textDecoration: 'none', color: '#0070f3' }}>
+                {/* 表示は「The Beatles」のまま */}
                 {item.artist}
               </Link>
               {myVotedArtists.includes(item.artist) && (
@@ -128,7 +165,7 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
         ))}
       </ul>
 
-      {/* --- 下部ページネーション --- */}
+      {/* 下部ページネーション */}
       {renderPagination()}
 
     </div>

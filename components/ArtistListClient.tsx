@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import AddToArkButton from '@/components/AddToArkButton'
 
 type ArtistData = {
   artist: string
@@ -11,48 +10,80 @@ type ArtistData = {
 }
 
 type Props = {
-  initialArtists: ArtistData[] // 全アーティストデータ
-  myVotedArtists: string[]     // 自分が投票済みのアーティスト名リスト
+  initialArtists: ArtistData[]
+  myVotedArtists: string[]
 }
 
-const ITEMS_PER_PAGE = 50 // 1ページあたりの表示件数
+const ITEMS_PER_PAGE = 50
 
 export default function ArtistListClient({ initialArtists, myVotedArtists }: Props) {
-  const [filterUnvoted, setFilterUnvoted] = useState(false) // 未登録のみフィルター
-  const [currentPage, setCurrentPage] = useState(1)         // 現在のページ
+  const [filterUnvoted, setFilterUnvoted] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // ■ フィルタリング処理
   const filteredArtists = useMemo(() => {
     let result = initialArtists
-
-    // 「未登録のみ」がONなら、自分のリストにあるやつを除外
     if (filterUnvoted) {
       result = result.filter(item => !myVotedArtists.includes(item.artist))
     }
-    
     return result
   }, [initialArtists, myVotedArtists, filterUnvoted])
 
-  // ■ ページネーション計算
   const totalPages = Math.ceil(filteredArtists.length / ITEMS_PER_PAGE)
   
-  // ページが変わったらスクロールを一番上に戻すなどの処理はお好みで
-  // 現在のページに表示するデータ
   const currentArtists = filteredArtists.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   )
 
-  // ページ切り替え時にページ1に戻す（フィルタが変わった時など）
   const handleFilterChange = (checked: boolean) => {
     setFilterUnvoted(checked)
     setCurrentPage(1)
   }
 
+  // ★追加：ページネーション部品を生成する関数（再利用するため）
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+
+    return (
+      <div style={{ margin: '20px 0', display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center' }}>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+          const startIdx = (page - 1) * ITEMS_PER_PAGE
+          const endIdx = Math.min(page * ITEMS_PER_PAGE, filteredArtists.length) - 1
+          
+          // データが存在するか確認してから頭文字を取得
+          const startChar = filteredArtists[startIdx]?.artist ? filteredArtists[startIdx].artist.charAt(0) : '?'
+          const endChar = filteredArtists[endIdx]?.artist ? filteredArtists[endIdx].artist.charAt(0) : '?'
+          
+          return (
+            <button
+              key={page}
+              onClick={() => {
+                setCurrentPage(page)
+                // ページ切り替え時に上までスクロール（お好みで削除可）
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              title={`${startChar} ... ${endChar}`} 
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #ccc',
+                background: currentPage === page ? 'black' : 'white',
+                color: currentPage === page ? 'white' : 'black',
+                cursor: 'pointer',
+                borderRadius: '4px'
+              }}
+            >
+              {page}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* --- コントロールエリア --- */}
-      <div style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ marginBottom: '10px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <input
           type="checkbox"
           id="filterUnvoted"
@@ -64,9 +95,12 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
           自分がまだ登録していないアーティストのみ表示
         </label>
         <span style={{ marginLeft: 'auto', fontSize: '0.9em', color: '#666' }}>
-          {filteredArtists.length} 件ヒット
+          {filteredArtists.length} 件
         </span>
       </div>
+
+      {/* ★追加：リストの上にもページネーションを表示 */}
+      {renderPagination()}
 
       {/* --- リスト表示 --- */}
       <ul style={{ listStyle: 'none', padding: 0 }}>
@@ -76,7 +110,6 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
               <Link href={`/songs/${encodeURIComponent(item.artist)}`} style={{ fontWeight: 'bold', fontSize: '1.2em', textDecoration: 'none', color: '#0070f3' }}>
                 {item.artist}
               </Link>
-              {/* 自分が投票済みならマークを出す */}
               {myVotedArtists.includes(item.artist) && (
                 <span style={{ fontSize: '0.8em', background: '#e0ffe0', color: '#008000', padding: '2px 6px', borderRadius: '4px' }}>
                   登録済
@@ -95,40 +128,9 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
         ))}
       </ul>
 
-      {/* --- ページネーション（ホバーで範囲表示） --- */}
-      {totalPages > 1 && (
-        <div style={{ marginTop: '30px', display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center' }}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-            // このページの先頭と末尾のデータを確認
-            const startIdx = (page - 1) * ITEMS_PER_PAGE
-            const endIdx = Math.min(page * ITEMS_PER_PAGE, filteredArtists.length) - 1
-            const startChar = filteredArtists[startIdx]?.artist.charAt(0) || '?'
-            const endChar = filteredArtists[endIdx]?.artist.charAt(0) || '?'
-            
-            return (
-              <button
-                key={page}
-                onClick={() => {
-                  setCurrentPage(page)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                // ★ここがポイント：ホバー時のツールチップ
-                title={`${startChar} ... ${endChar}`} 
-                style={{
-                  padding: '8px 12px',
-                  border: '1px solid #ccc',
-                  background: currentPage === page ? 'black' : 'white',
-                  color: currentPage === page ? 'white' : 'black',
-                  cursor: 'pointer',
-                  borderRadius: '4px'
-                }}
-              >
-                {page}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {/* --- 下部ページネーション --- */}
+      {renderPagination()}
+
     </div>
   )
 }

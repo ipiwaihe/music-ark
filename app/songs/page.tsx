@@ -1,65 +1,64 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
-import { cookies } from 'next/headers' // ★追加
-import FilterToggleButton from '@/components/FilterToggleButton' // ★追加
+import { cookies } from 'next/headers'
+import FilterToggleButton from '@/components/FilterToggleButton'
+import ArtistListClient from '@/components/ArtistListClient' // ★追加
 
 export default async function SongsListPage() {
   const supabase = await createClient()
-
-  // ★追加：Cookieを確認
   const cookieStore = await cookies()
-  const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
+  
+  // 1. ログインユーザ情報の取得
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // ★変更：モードによって使うViewを変える
+  // 2. モード設定
+  const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
   const viewName = isRealOnly ? 'artist_leaders_real_users' : 'artist_leaders'
 
-  // ★変更：集計済みのViewから取得するだけ！JSでの計算ロジックは全削除！
+  // 3. アーティスト一覧の取得
   const { data: artistList } = await supabase
-    .from(viewName) // 変数でViewを指定
+    .from(viewName)
     .select('*')
-    .order('artist', { ascending: true })
+    .order('artist', { ascending: true }) // アルファベット順にしておくとページネーションが綺麗です
 
-  if (!artistList) return <div>データがありません</div>
+  // 4. ★追加：自分が投票済みのアーティスト名を取得
+  let myVotedArtists: string[] = []
+  if (user) {
+    const { data: myVotes } = await supabase
+      .from('votes')
+      .select('artist')
+      .eq('user_id', user.id)
+    
+    if (myVotes) {
+      // オブジェクトの配列を文字列の配列に変換 ['ArtistA', 'ArtistB']
+      myVotedArtists = myVotes.map(v => v.artist)
+    }
+  }
+
+  if (!artistList) return <div>データ読み込みエラー</div>
 
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
       
-      {/* ナビゲーションエリアをFlexboxで整列 */}
+      {/* ナビゲーション */}
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ textDecoration: 'none', color: '#666' }}>← 自分の箱舟に戻る</Link>
-        
-        {/* ★ここにスイッチを配置 */}
         <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
       
       <h1>登録アーティスト一覧</h1>
-      {/* メッセージも少し親切に切り替え */}
-      <p style={{ marginBottom: '30px' }}>
+      <p style={{ marginBottom: '20px' }}>
         {isRealOnly 
           ? 'ユーザが登録したアーティストのみ表示しています。' 
-          : 'Spotify人気曲データ(手入力)を含む、全てのアーティストを表示しています。'}
+          : 'Spotify人気曲データを含む、全てのアーティストを表示しています。'}
       </p>
 
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {artistList.map((item) => (
-          <li key={item.artist} style={{ borderBottom: '1px solid #eee', padding: '15px 0' }}>
-            <Link 
-              href={`/songs/${encodeURIComponent(item.artist)}`} 
-              style={{ textDecoration: 'none', color: 'inherit', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: 'bold', fontSize: '1.2em', marginRight: '10px' }}>
-                  {item.artist}
-                </span>
-                <span style={{ color: '#666', fontSize: '0.9em' }}>
-                  代表曲: {item.top_song} {/* Viewのカラム名に合わせる */}
-                </span>
-              </div>
-              <span style={{ color: '#999' }}>ᐳ</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {/* ★リスト表示をClient Componentに委譲 */}
+      <ArtistListClient 
+        initialArtists={artistList} 
+        myVotedArtists={myVotedArtists} 
+      />
+
     </div>
   )
 }

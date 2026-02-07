@@ -110,7 +110,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
             value={comment} 
             onChange={(e) => setComment(e.target.value)} 
             placeholder="推薦コメント" 
-            maxLength={400} // ★追加：400文字まで
+            maxLength={140} // ★追加：140文字まで
             style={{ padding: '10px', fontSize: '16px', height: '80px' }} 
           />
 

@@ -197,20 +197,49 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     fontWeight: 'bold' as const
   })
 
+  // ★共通の入力欄スタイル（白背景・枠線・丸み）
+  const inputStyle = {
+    padding: '10px',
+    fontSize: '16px',
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    background: '#fff',       // 白背景
+    border: '1px solid #ddd', // 薄いグレーの枠線
+    borderRadius: '6px'       // 角丸（チェックボックスエリアに合わせる）
+  }
+
   return (
     <div>
       {/* 入力フォームエリア */}
       <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
         <form onSubmit={onSubmitHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {/* ... (フォームの中身は変更なし) ... */}
+          
           <div>
             <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>アーティスト名</label>
-            <input name="artist" value={artist} onChange={(e) => setArtist(e.target.value)} placeholder="例: The Beatles" required maxLength={100} style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }} />
+            <input 
+              name="artist" 
+              value={artist} 
+              onChange={(e) => setArtist(e.target.value)} 
+              placeholder="例: The Beatles" 
+              required 
+              maxLength={100} 
+              style={inputStyle} // ★スタイル適用
+            />
           </div>
+
           <div>
             <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>曲名</label>
-            <input name="song" value={song} onChange={(e) => setSong(e.target.value)} placeholder="例: Across the Universe" required maxLength={100} style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }} />
+            <input 
+              name="song" 
+              value={song} 
+              onChange={(e) => setSong(e.target.value)} 
+              placeholder="例: Across the Universe" 
+              required 
+              maxLength={100} 
+              style={inputStyle} // ★スタイル適用
+            />
           </div>
+
           <div style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'flex-start' }}>
               <input type="checkbox" checked={isKnowledgeable} onChange={(e) => setIsKnowledgeable(e.target.checked)} style={{ transform: 'scale(1.2)', marginTop: '3px' }} />
@@ -226,10 +255,19 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               </span>
             </label>
           </div>
+
           <div>
             <label style={{fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>コメント</label>
-            <textarea name="comment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="推薦コメント（140文字まで）" maxLength={140} style={{ padding: '10px', fontSize: '16px', height: '80px', width: '100%', boxSizing: 'border-box' }} />
+            <textarea 
+              name="comment" 
+              value={comment} 
+              onChange={(e) => setComment(e.target.value)} 
+              placeholder="推薦コメント（140文字まで）" 
+              maxLength={140} 
+              style={{ ...inputStyle, height: '80px' }} // ★スタイル適用（高さ指定だけ追加）
+            />
           </div>
+
           <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
             <button type="submit" disabled={isLoading} style={{ flex: 2, padding: '12px', background: isLoading ? '#999' : 'black', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}>{isLoading ? '通信中...' : '箱舟に乗せる（保存）'}</button>
             <button type="button" onClick={handleDelete} disabled={!artist || isLoading} style={{ flex: 1, padding: '12px', background: (!artist || isLoading) ? '#ccc' : '#d32f2f', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>降ろす</button>

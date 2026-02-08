@@ -59,7 +59,7 @@ export default async function SongsListPage() {
         <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
       
-      <h1>音楽の箱舟 ランキング</h1>
+      <h1>音楽の箱舟 みんなのリスト</h1>
       <p style={{ marginBottom: '20px', fontSize: '0.9em', color: '#666' }}>
         {isRealOnly 
           ? '【リアルユーザー限定】 実際にユーザーが投票した熱量の高いランキングです。' 

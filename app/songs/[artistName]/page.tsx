@@ -49,7 +49,7 @@ export default async function ArtistPage({ params }: Props) {
             ← 自分の箱舟に戻る
           </Link>
           <Link href="/songs" style={{ textDecoration: 'none', color: '#666', fontSize: '0.9em' }}>
-            ← ランキングに戻る
+            ← みんなのリストに戻る
           </Link>
         </div>
         <FilterToggleButton isRealOnly={isRealOnly} />

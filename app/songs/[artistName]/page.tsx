@@ -5,34 +5,38 @@ import { cookies } from 'next/headers'
 import FilterToggleButton from '@/components/FilterToggleButton'
 
 type Props = {
-  params: Promise<{ artistName: string }> // フォルダ名が[artist]ならここもartistになります
+  // フォルダ名が [artistName] なので、ここは必ず artistName になります
+  params: Promise<{ artistName: string }> 
 }
 
 export default async function ArtistPage({ params }: Props) {
-  // フォルダ名が [artist] なら params.artist です。
-  // もし [artistName] というフォルダ名なら params.artistName にしてください。
-  const { artistName } = await params 
+  const { artistName } = await params
   const decodedArtistName = decodeURIComponent(artistName)
   
   const supabase = await createClient()
   const cookieStore = await cookies()
 
-  // 1. モード判定
+  // 1. モード判定（リアルユーザーのみか、全部か）
   const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
 
-  // 2. ★変更：使うViewを「スコア集計版」に切り替え
-  // 全員なら song_stats, リアルのみなら song_stats_real
+  // 2. 使うViewを切り替え
+  // 全データなら song_stats, リアルのみなら song_stats_real
   const viewName = isRealOnly ? 'song_stats_real' : 'song_stats'
   
   // 3. データ取得
-  const { data: songList } = await supabase
+  const { data: songList, error } = await supabase
     .from(viewName)
     .select('*')
     .eq('artist', decodedArtistName)
-    .order('total_score', { ascending: false })  // ★第1優先：スコア（高い順）
+    .order('total_score', { ascending: false })  // 第1優先：スコア
     .order('vote_count', { ascending: false })   // 第2優先：票数
     .order('last_updated', { ascending: false }) // 第3優先：更新日時
   
+  if (error) {
+    console.error(error)
+    return <div>データ取得エラー</div>
+  }
+
   if (!songList) return <div>データが見つかりません</div>
 
   return (
@@ -68,7 +72,6 @@ export default async function ArtistPage({ params }: Props) {
               
               {/* 左側：順位・曲名・スコア */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                {/* 順位バッジ */}
                 <span style={{ 
                   fontSize: '1.4em', fontWeight: 'bold', color: rankColor, 
                   minWidth: '35px', textAlign: 'center' 
@@ -80,7 +83,6 @@ export default async function ArtistPage({ params }: Props) {
                   <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '4px' }}>
                     {item.song}
                   </div>
-                  {/* スコアと票数表示 */}
                   <div style={{ fontSize: '0.9em', color: '#666', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ color: '#0070f3', fontWeight: 'bold' }}>
                       {item.total_score.toFixed(2)} pt

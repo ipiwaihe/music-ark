@@ -3,20 +3,17 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
-type ArtistData = {
+// 型定義：ランキングViewから返ってくるデータ構造に合わせる
+type ArtistRanking = {
   artist: string
   total_score: number
   vote_count: number
-  // ▼▼▼ 修正: string | null を許容する ▼▼▼
-  top_song: string | null 
-  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+  top_song: string | null
   last_updated: string
 }
 
 type Props = {
-  // initialArtists: ArtistRanking[] と書いている場合はそのままでOKですが、
-  // エラーメッセージ的に ArtistData[] と書かれているようなので、そこを合わせます。
-  initialArtists: ArtistData[] 
+  initialArtists: ArtistRanking[]
   myVotedArtists: string[]
 }
 
@@ -26,35 +23,35 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
   const [filterUnvoted, setFilterUnvoted] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
-  // ■ 1. 並び替え用の「裏の名前」を作る関数
-  // "The Beatles" → "beatles, the" に変換します
+  // The抜きソート用のヘルパー
   const getSortName = (name: string) => {
-    const lowerName = name.toLowerCase() // まず小文字にする
-    
-    // "the " (the＋スペース) で始まる場合
-    if (lowerName.startsWith('the ')) {
-      // "the " を取り除き、後ろに ", the" をつける
-      return lowerName.slice(4) + ', the'
-    }
-    
-    // それ以外はそのまま返す
+    const lowerName = name.toLowerCase()
+    if (lowerName.startsWith('the ')) return lowerName.slice(4) + ', the'
     return lowerName
   }
 
-  // ■ 2. フィルタリング ＆ ソート処理
+  // フィルタリング & ソートロジック
   const filteredArtists = useMemo(() => {
-    let result = [...initialArtists] // 元のデータを壊さないようコピー
+    let result = [...initialArtists]
 
     // (A) 未登録フィルター
     if (filterUnvoted) {
       result = result.filter(item => !myVotedArtists.includes(item.artist))
     }
     
-    // (B) ソート処理（"beatles, the" の形にして比較）
+    // (B) ソート処理：サーバー側ですでにスコア順だが、念のためクライアントでも保証
     result.sort((a, b) => {
+      // 1. スコア順（大きい方が上）
+      if (a.total_score > b.total_score) return -1
+      if (a.total_score < b.total_score) return 1
+
+      // 2. 更新日（新しい方が上）
+      if (a.last_updated > b.last_updated) return -1
+      if (a.last_updated < b.last_updated) return 1
+
+      // 3. 名前順（The抜き）
       const nameA = getSortName(a.artist)
       const nameB = getSortName(b.artist)
-      
       if (nameA < nameB) return -1
       if (nameA > nameB) return 1
       return 0
@@ -63,9 +60,8 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
     return result
   }, [initialArtists, myVotedArtists, filterUnvoted])
 
-  // ■ ページネーション計算
+  // ページネーション計算
   const totalPages = Math.ceil(filteredArtists.length / ITEMS_PER_PAGE)
-  
   const currentArtists = filteredArtists.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -76,55 +72,37 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
     setCurrentPage(1)
   }
 
-  // ■ ページネーション部品（上でも下でも使えるように関数化）
+  // ページネーション部品
   const renderPagination = () => {
     if (totalPages <= 1) return null
-
     return (
       <div style={{ margin: '20px 0', display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center' }}>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-          const startIdx = (page - 1) * ITEMS_PER_PAGE
-          const endIdx = Math.min(page * ITEMS_PER_PAGE, filteredArtists.length) - 1
-          
-          // ▼▼▼ ここがポイント ▼▼▼
-          // そのページの先頭と末尾のデータの「裏の名前」を取得
-          const startData = filteredArtists[startIdx]
-          const endData = filteredArtists[endIdx]
-
-          // "The Beatles" なら "beatles, the" に変換してから、頭文字 "b" を取る
-          const startChar = startData ? getSortName(startData.artist).charAt(0).toUpperCase() : '?'
-          const endChar = endData ? getSortName(endData.artist).charAt(0).toUpperCase() : '?'
-          // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
-          return (
-            <button
-              key={page}
-              onClick={() => {
-                setCurrentPage(page)
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }}
-              // ツールチップには "B ... C" のように表示される
-              title={`${startChar} ... ${endChar}`} 
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #ccc',
-                background: currentPage === page ? 'black' : 'white',
-                color: currentPage === page ? 'white' : 'black',
-                cursor: 'pointer',
-                borderRadius: '4px'
-              }}
-            >
-              {page}
-            </button>
-          )
-        })}
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => {
+              setCurrentPage(page)
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ccc',
+              background: currentPage === page ? 'black' : 'white',
+              color: currentPage === page ? 'white' : 'black',
+              cursor: 'pointer',
+              borderRadius: '4px'
+            }}
+          >
+            {page}
+          </button>
+        ))}
       </div>
     )
   }
 
   return (
     <div>
-      {/* --- コントロールエリア --- */}
+      {/* コントロールエリア */}
       <div style={{ marginBottom: '10px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <input
           type="checkbox"
@@ -134,46 +112,65 @@ export default function ArtistListClient({ initialArtists, myVotedArtists }: Pro
           style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
         />
         <label htmlFor="filterUnvoted" style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-          自分がまだ登録していないアーティストのみ表示
+          未登録のみ表示
         </label>
         <span style={{ marginLeft: 'auto', fontSize: '0.9em', color: '#666' }}>
-          {filteredArtists.length} 件
+          {filteredArtists.length} 組
         </span>
       </div>
 
-      {/* 上部ページネーション */}
       {renderPagination()}
 
-      {/* --- リスト表示 --- */}
       <ul style={{ listStyle: 'none', padding: 0 }}>
-        {currentArtists.map((item) => (
-          <li key={item.artist} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Link href={`/songs/${encodeURIComponent(item.artist)}`} style={{ fontWeight: 'bold', fontSize: '1.2em', textDecoration: 'none', color: '#0070f3' }}>
-                {/* 表示は「The Beatles」のまま */}
-                {item.artist}
-              </Link>
-              {myVotedArtists.includes(item.artist) && (
-                <span style={{ fontSize: '0.8em', background: '#e0ffe0', color: '#008000', padding: '2px 6px', borderRadius: '4px' }}>
-                  登録済
+        {currentArtists.map((item, index) => {
+          // 全体の中での順位を計算
+          const rank = (currentPage - 1) * ITEMS_PER_PAGE + index + 1
+          
+          return (
+            <li key={item.artist} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                
+                {/* 順位バッジ */}
+                <span style={{ 
+                  fontSize: '1.2em', fontWeight: 'bold', color: '#888', 
+                  minWidth: '30px', textAlign: 'center' 
+                }}>
+                  {rank}
                 </span>
-              )}
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.9em', color: '#666' }}>
-                <span style={{ fontWeight: 'bold' }}>{item.vote_count}</span>票
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link href={`/songs/${encodeURIComponent(item.artist)}`} style={{ fontWeight: 'bold', fontSize: '1.2em', textDecoration: 'none', color: '#0070f3' }}>
+                      {item.artist}
+                    </Link>
+                    {myVotedArtists.includes(item.artist) && (
+                      <span style={{ fontSize: '0.8em', background: '#e0ffe0', color: '#008000', padding: '2px 6px', borderRadius: '4px' }}>
+                        済
+                      </span>
+                    )}
+                  </div>
+                  {/* 代表曲表示 */}
+                  <div style={{ fontSize: '0.9em', color: '#555', marginTop: '4px' }}>
+                    代表曲: <span style={{fontWeight:'bold'}}>{item.top_song || '(なし)'}</span>
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: '0.8em', color: '#888' }}>
-                代表曲: {item.top_song || '(まだなし)'}
+
+              {/* 右側：スコアと票数（ここが新しいデザイン！） */}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '1.1em', fontWeight: 'bold' }}>
+                  {item.total_score.toFixed(2)} <span style={{fontSize:'0.7em', fontWeight:'normal'}}>pt</span>
+                </div>
+                <div style={{ fontSize: '0.8em', color: '#888' }}>
+                  ({item.vote_count}票)
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
 
-      {/* 下部ページネーション */}
       {renderPagination()}
-
     </div>
   )
 }

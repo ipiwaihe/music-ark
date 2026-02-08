@@ -2,24 +2,21 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 
 // ■ 曲を登録または更新する機能
 export async function upsertVote(formData: FormData, forceUpdate = false) {
   const supabase = await createClient()
 
-  // 1. ログインチェック
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return { status: 'error', message: 'ログインが必要です' }
   }
 
-  // 2. フォームデータの取得と整形
   const artist = (formData.get('artist') as string)?.trim()
   const song = (formData.get('song') as string)?.trim()
   const comment = (formData.get('comment') as string)?.trim() || null
   
-  // チェックボックスは "true" という文字列か、存在しないかで判定されることが多いが、
-  // クライアント側で明示的に "true"/"false" 文字列を送っている場合は以下でOK
   const isKnowledgeable = formData.get('is_knowledgeable') === 'true'
   const isPassionate = formData.get('is_passionate') === 'true'
 
@@ -27,16 +24,15 @@ export async function upsertVote(formData: FormData, forceUpdate = false) {
     return { status: 'error', message: 'アーティスト名と曲名は必須です' }
   }
 
-  // 3. 既存データのチェック（上書き確認用）
+  // 既存データのチェック
   if (!forceUpdate) {
     const { data: existingVote } = await supabase
       .from('votes')
-      .select('song, id') // idも取っておく
+      .select('song, id')
       .eq('user_id', user.id)
       .eq('artist', artist)
       .single()
 
-    // 既に登録済みで、かつ曲名が違う場合（＝曲の変更）は確認を出す
     if (existingVote && existingVote.song !== song) {
       return {
         status: 'confirm_needed',
@@ -45,7 +41,7 @@ export async function upsertVote(formData: FormData, forceUpdate = false) {
     }
   }
 
-  // 4. 保存実行 (Upsert)
+  // 保存実行
   const { error } = await supabase
     .from('votes')
     .upsert({
@@ -57,7 +53,7 @@ export async function upsertVote(formData: FormData, forceUpdate = false) {
       is_passionate: isPassionate,
       updated_at: new Date().toISOString(),
     }, {
-      onConflict: 'user_id, artist' // 複合ユニーク制約を指定
+      onConflict: 'user_id, artist'
     })
 
   if (error) {
@@ -65,7 +61,6 @@ export async function upsertVote(formData: FormData, forceUpdate = false) {
     return { status: 'error', message: '保存に失敗しました' }
   }
 
-  // 関連するページを再生成（自分のリスト、ランキング、詳細など）
   revalidatePath('/', 'layout') 
   return { status: 'success', message: '保存しました' }
 }
@@ -108,4 +103,21 @@ export async function toggleVoteFlag(voteId: number, field: 'is_knowledgeable' |
 
   revalidatePath('/', 'layout')
   return { status: 'success' }
+}
+
+// ▼▼▼ 復活！: フィルター設定を切り替える機能 ▼▼▼
+export async function toggleFilterMode() {
+  const cookieStore = await cookies()
+  const currentMode = cookieStore.get('filter_mode')?.value
+
+  // ロジック反転：
+  // 今が 'all' なら、削除してデフォルト（ユーザのみ）に戻す
+  // 今が デフォルト（ユーザのみ）なら、'all' をセットして全表示にする
+  if (currentMode === 'all') {
+    cookieStore.delete('filter_mode') 
+  } else {
+    cookieStore.set('filter_mode', 'all')
+  }
+
+  revalidatePath('/', 'layout')
 }

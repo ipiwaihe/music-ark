@@ -5,12 +5,18 @@ import Link from 'next/link'
 
 type ArtistData = {
   artist: string
-  top_song?: string
+  total_score: number
   vote_count: number
+  // ▼▼▼ 修正: string | null を許容する ▼▼▼
+  top_song: string | null 
+  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+  last_updated: string
 }
 
 type Props = {
-  initialArtists: ArtistData[]
+  // initialArtists: ArtistRanking[] と書いている場合はそのままでOKですが、
+  // エラーメッセージ的に ArtistData[] と書かれているようなので、そこを合わせます。
+  initialArtists: ArtistData[] 
   myVotedArtists: string[]
 }
 

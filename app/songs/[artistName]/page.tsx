@@ -1,98 +1,121 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
 import AddToArkButton from '@/components/AddToArkButton'
-import { cookies } from 'next/headers' // ★追加
-import FilterToggleButton from '@/components/FilterToggleButton' // ★追加
+import { cookies } from 'next/headers'
+import FilterToggleButton from '@/components/FilterToggleButton'
 
 type Props = {
-  params: Promise<{ artistName: string }>
+  params: Promise<{ artistName: string }> // フォルダ名が[artist]ならここもartistになります
 }
 
 export default async function ArtistPage({ params }: Props) {
-  const { artistName } = await params
+  // フォルダ名が [artist] なら params.artist です。
+  // もし [artistName] というフォルダ名なら params.artistName にしてください。
+  const { artistName } = await params 
   const decodedArtistName = decodeURIComponent(artistName)
+  
   const supabase = await createClient()
-
-  // ★追加：Cookieを確認
   const cookieStore = await cookies()
+
+  // 1. モード判定
   const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
 
-  // ★変更：モードによって使うViewを変える
-  const viewName = isRealOnly ? 'song_counts_real_users' : 'song_counts'
+  // 2. ★変更：使うViewを「スコア集計版」に切り替え
+  // 全員なら song_stats, リアルのみなら song_stats_real
+  const viewName = isRealOnly ? 'song_stats_real' : 'song_stats'
   
-  // 集計済みのViewから、このアーティストの曲を取得
+  // 3. データ取得
   const { data: songList } = await supabase
-    .from(viewName) // 変数でViewを指定
+    .from(viewName)
     .select('*')
     .eq('artist', decodedArtistName)
-    .order('vote_count', { ascending: false })   // 第1優先：得票数（多い順）
-    .order('last_updated', { ascending: false }) // 第2優先：更新日時（新しい順）
+    .order('total_score', { ascending: false })  // ★第1優先：スコア（高い順）
+    .order('vote_count', { ascending: false })   // 第2優先：票数
+    .order('last_updated', { ascending: false }) // 第3優先：更新日時
   
   if (!songList) return <div>データが見つかりません</div>
 
-return (
-    <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
+  return (
+    <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif', padding: '0 20px' }}>
       
       {/* ナビゲーションエリア */}
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        
-        {/* 左側：リンクを縦に並べる箱 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <Link href="/" style={{ textDecoration: 'none', color: '#666', fontSize: '0.9em' }}>
             ← 自分の箱舟に戻る
           </Link>
           <Link href="/songs" style={{ textDecoration: 'none', color: '#666', fontSize: '0.9em' }}>
-            ← リストに戻る
+            ← ランキングに戻る
           </Link>
         </div>
-        
-        {/* 右側：スイッチ（そのまま） */}
         <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
 
       <h1>{decodedArtistName}</h1>
-      <p style={{ marginBottom: '30px' }}>登録されている曲の一覧</p>
+      <p style={{ marginBottom: '30px', color: '#666' }}>
+        {isRealOnly ? 'リアルユーザーの投票による曲ランキング' : '登録されている曲の一覧（総合スコア順）'}
+      </p>
 
       <ul style={{ listStyle: 'none', padding: 0 }}>
-        {songList.map((item) => (
-          <li key={item.song} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {/* 左側：曲名と情報 */}
-            <div>
-              <span style={{ fontWeight: 'bold', fontSize: '1.2em', marginRight: '10px' }}>
-                {item.song}
-              </span>
-              <span style={{ fontSize: '0.9em', color: '#666', background: '#eee', padding: '2px 6px', borderRadius: '4px' }}>
-                {item.vote_count}人が登録
-              </span>
-            </div>
-            
-            {/* 右側：ボタンエリア（YouTubeと箱舟ボタンを横並びにする） */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {/* YouTube検索ボタン */}
-              <a 
-                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(decodedArtistName + ' ' + item.song)}`}
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  fontSize: '12px', 
-                  color: '#d32f2f', // YouTubeっぽい赤色
-                  textDecoration: 'none', 
-                  border: '1px solid #d32f2f', 
-                  padding: '4px 8px', 
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                ▶ YouTube
-              </a>
+        {songList.map((item, index) => {
+          // 順位計算
+          const rank = index + 1
+          // 1~3位の色分け
+          const rankColor = rank === 1 ? '#d4af37' : (rank === 2 ? '#c0c0c0' : (rank === 3 ? '#cd7f32' : '#ddd'))
 
-              {/* 箱舟に乗せるボタン */}
-              <AddToArkButton artist={decodedArtistName} song={item.song} />
-            </div>
-          </li>
-        ))}
+          return (
+            <li key={item.song} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              
+              {/* 左側：順位・曲名・スコア */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                {/* 順位バッジ */}
+                <span style={{ 
+                  fontSize: '1.4em', fontWeight: 'bold', color: rankColor, 
+                  minWidth: '35px', textAlign: 'center' 
+                }}>
+                  {rank}
+                </span>
+
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.2em', marginBottom: '4px' }}>
+                    {item.song}
+                  </div>
+                  {/* スコアと票数表示 */}
+                  <div style={{ fontSize: '0.9em', color: '#666', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ color: '#0070f3', fontWeight: 'bold' }}>
+                      {item.total_score.toFixed(2)} pt
+                    </span>
+                    <span style={{ background: '#eee', padding: '1px 6px', borderRadius: '4px', fontSize: '0.85em' }}>
+                      {item.vote_count}票
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 右側：ボタンエリア */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <a 
+                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(decodedArtistName + ' ' + item.song)}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    fontSize: '12px', color: '#d32f2f', textDecoration: 'none', 
+                    border: '1px solid #d32f2f', padding: '4px 8px', borderRadius: '4px',
+                    display: 'flex', alignItems: 'center'
+                  }}
+                >
+                  ▶ YouTube
+                </a>
+                <AddToArkButton artist={decodedArtistName} song={item.song} />
+              </div>
+            </li>
+          )
+        })}
       </ul>
+
+      {songList.length === 0 && (
+        <p>条件に一致する曲がありません。</p>
+      )}
     </div>
   )
 }

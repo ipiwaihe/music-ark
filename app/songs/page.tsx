@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import Link from 'next/link'
-import { cookies } from 'next/headers' // ★復活
-import FilterToggleButton from '@/components/FilterToggleButton' // ★復活
+import { cookies } from 'next/headers'
+import FilterToggleButton from '@/components/FilterToggleButton'
 import ArtistListClient from '@/components/ArtistListClient'
 
 export type ArtistRanking = {
@@ -14,22 +14,21 @@ export type ArtistRanking = {
 
 export default async function SongsListPage() {
   const supabase = await createClient()
-  const cookieStore = await cookies() // ★復活
+  const cookieStore = await cookies()
   
   // 1. ログインユーザ情報の取得
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. ★復活：モード設定（Cookieを見てViewを切り替える）
+  // 2. モード設定
   const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
-  // 新しく作ったランキング用Viewを使い分ける
   const viewName = isRealOnly ? 'artist_rankings_real' : 'artist_rankings'
 
-  // 3. ランキング一覧の取得
+  // 3. 一覧の取得
+  // ★変更: スコア順ではなく、アーティスト名順で取得
   const { data: artistList, error } = await supabase
-    .from(viewName) // ★切り替えたViewから取得
+    .from(viewName)
     .select('*')
-    .order('total_score', { ascending: false }) // スコア順
-    .order('last_updated', { ascending: false })
+    .order('artist', { ascending: true }) // アルファベット順（The抜きはクライアント側で補正）
 
   if (error) {
     console.error('Data fetch error:', error)
@@ -55,18 +54,17 @@ export default async function SongsListPage() {
       {/* ナビゲーション */}
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ textDecoration: 'none', color: '#666' }}>← 自分の箱舟に戻る</Link>
-        {/* ★復活：トグルボタン */}
         <FilterToggleButton isRealOnly={isRealOnly} />
       </div>
       
       <h1>音楽の箱舟 みんなのリスト</h1>
       <p style={{ marginBottom: '20px', fontSize: '0.9em', color: '#666' }}>
         {isRealOnly 
-          ? '【リアルユーザー限定】 実際にユーザーが投票した熱量の高いランキングです。' 
-          : '【全データ】 Spotifyの人気曲データなども含めた総合ランキングです。'}
+          ? '【ユーザ投稿のみ】 実際にユーザーが投票したデータのみのリストです。' 
+          : '【全データ】 Spotifyの人気曲データ（手入力）も含めたリストです。'}
       </p>
 
-      {/* リスト表示（中身は新ランキングロジック） */}
+      {/* リスト表示 */}
       <ArtistListClient 
         initialArtists={(artistList as ArtistRanking[]) || []} 
         myVotedArtists={myVotedArtists} 

@@ -1,4 +1,5 @@
 import { login, signup } from './actions'
+import Link from 'next/link'
 
 export default function LoginPage() {
   return (
@@ -34,6 +35,27 @@ export default function LoginPage() {
           </button>
         </div>
       </form>
+      {/* ▼▼▼ 追加: みんなのリストへのリンク ▼▼▼ */}
+      <div style={{ marginTop: '30px', textAlign: 'center' }}>
+        <p style={{ marginBottom: '10px', fontSize: '0.9em', color: '#666' }}>
+          どんな曲が登録されているか見てみる？
+        </p>
+        <Link
+          href="/songs" 
+          style={{ 
+            display: 'inline-block', 
+            padding: '10px 20px', 
+            border: '1px solid #ccc', 
+            borderRadius: '4px', 
+            textDecoration: 'none', 
+            color: 'black',
+            background: 'white',
+            fontWeight: 'bold'
+          }}
+        >
+          みんなのリストを見る
+        </Link>
+      </div>
     </div>
   )
 }

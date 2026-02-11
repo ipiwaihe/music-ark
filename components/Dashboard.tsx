@@ -3,36 +3,30 @@
 import { useState, useMemo } from 'react'
 import { upsertVote, deleteVote, toggleVoteFlag } from '@/app/actions'
 import Link from 'next/link'
+import { MAX_PASSIONATE_LIMIT } from '@/utils/constants'
 
 type Vote = {
   id: number
   artist: string
   song: string
   comment: string | null
-  is_knowledgeable: boolean 
   is_passionate: boolean
 }
 
-// フィルターの状態定義（全表示 / Trueのみ / Falseのみ）
 type FilterState = 'all' | 'true' | 'false'
 
 const ITEMS_PER_PAGE = 50
 
 export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
-  // --- フォーム用のState ---
   const [artist, setArtist] = useState('')
   const [song, setSong] = useState('')
   const [comment, setComment] = useState('')
-  const [isKnowledgeable, setIsKnowledgeable] = useState(false)
   const [isPassionate, setIsPassionate] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // --- リスト表示用のState ---
   const [currentPage, setCurrentPage] = useState(1)
-  const [filterKnowledge, setFilterKnowledge] = useState<FilterState>('all')
   const [filterPassion, setFilterPassion] = useState<FilterState>('all')
 
-  // ■ ヘルパー関数: The抜きソート用
   const getSortName = (name: string) => {
     const lowerName = name.toLowerCase()
     if (lowerName.startsWith('the ')) {
@@ -41,25 +35,18 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     return lowerName
   }
 
-  // ■ フィルタリング & ソート処理 (useMemoで高速化)
+  // 熱量ONの件数を計算（表示用）
+  const passionateCount = initialVotes.filter(v => v.is_passionate).length
+
   const processedVotes = useMemo(() => {
     let result = [...initialVotes]
 
-    // 1. 知識フィルター
-    if (filterKnowledge === 'true') {
-      result = result.filter(v => v.is_knowledgeable)
-    } else if (filterKnowledge === 'false') {
-      result = result.filter(v => !v.is_knowledgeable)
-    }
-
-    // 2. 熱量フィルター
     if (filterPassion === 'true') {
       result = result.filter(v => v.is_passionate)
     } else if (filterPassion === 'false') {
       result = result.filter(v => !v.is_passionate)
     }
 
-    // 3. ソート（The抜きアルファベット順）
     result.sort((a, b) => {
       const nameA = getSortName(a.artist)
       const nameB = getSortName(b.artist)
@@ -69,45 +56,47 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     })
 
     return result
-  }, [initialVotes, filterKnowledge, filterPassion])
+  }, [initialVotes, filterPassion])
 
-  // ■ ページネーション計算
   const totalPages = Math.ceil(processedVotes.length / ITEMS_PER_PAGE)
   const currentVotes = processedVotes.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   )
 
-  // フィルター切り替え関数
   const toggleFilter = (current: FilterState, setter: (s: FilterState) => void) => {
-    setCurrentPage(1) // フィルターを変えたら1ページ目に戻す
+    setCurrentPage(1)
     if (current === 'all') setter('true')
     else if (current === 'true') setter('false')
     else setter('all')
   }
 
-  // --- 既存のアクション関数 ---
   async function onSubmitHandler(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault() 
     if (isLoading) return 
     setIsLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
-      formData.set('is_knowledgeable', isKnowledgeable.toString())
       formData.set('is_passionate', isPassionate.toString())
+      
       const result = await upsertVote(formData, false)
 
       if (result?.status === 'confirm_needed') {
         if (confirm(result.message)) {
-          await upsertVote(formData, true)
-          alert('書き換えました！')
-          resetForm()
+          const result2 = await upsertVote(formData, true)
+          // confirm後の2回目の呼び出し結果もハンドリング
+          if (result2?.status === 'error') {
+            alert(result2.message)
+          } else {
+            alert('書き換えました！')
+            resetForm()
+          }
         }
       } else if (result?.status === 'success') {
         alert('保存しました！')
         resetForm()
       } else if (result?.status === 'error') {
-        alert('エラー: ' + result.message)
+        alert(result.message) // エラーメッセージをそのまま表示（上限エラーなど）
       }
     } catch (err) {
       console.error(err)
@@ -128,20 +117,20 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     }
   }
 
-  async function handleToggle(voteId: number, field: 'is_knowledgeable' | 'is_passionate', currentValue: boolean) {
-    const result = await toggleVoteFlag(voteId, field, !currentValue)
-    if (result.status === 'error') alert('更新できませんでした')
+  async function handleToggle(voteId: number, currentValue: boolean) {
+    const result = await toggleVoteFlag(voteId, 'is_passionate', !currentValue)
+    if (result.status === 'error') {
+        alert(result.message) // 上限エラーなどを表示
+    }
   }
 
   function resetForm() {
     setArtist('')
     setSong('')
     setComment('')
-    setIsKnowledgeable(false)
     setIsPassionate(false)
   }
 
-  // ■ ページネーション部品
   const renderPagination = () => {
     if (totalPages <= 1) return null
     return (
@@ -159,7 +148,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               key={page}
               onClick={() => {
                 setCurrentPage(page)
-                window.scrollTo({ top: 0, behavior: 'smooth' }) // リスト上部へスクロールさせるなら微調整必要かも
+                window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
               title={`${startChar} ... ${endChar}`} 
               style={{
@@ -180,13 +169,6 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     )
   }
 
-  // ■ フィルターボタンの見た目用ヘルパー
-  const getFilterButtonContent = (state: FilterState, trueIcon: string, falseIcon: string) => {
-    if (state === 'all') return 'ー' // 全表示
-    if (state === 'true') return trueIcon // Trueのみ
-    return falseIcon // Falseのみ
-  }
-  
   const getFilterButtonStyle = (state: FilterState) => ({
     padding: '5px 10px',
     cursor: 'pointer',
@@ -197,20 +179,18 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
     fontWeight: 'bold' as const
   })
 
-  // ★共通の入力欄スタイル（白背景・枠線・丸み）
   const inputStyle = {
     padding: '10px',
     fontSize: '16px',
     width: '100%',
     boxSizing: 'border-box' as const,
-    background: '#fff',       // 白背景
-    border: '1px solid #ddd', // 薄いグレーの枠線
-    borderRadius: '6px'       // 角丸（チェックボックスエリアに合わせる）
+    background: '#fff',
+    border: '1px solid #ddd',
+    borderRadius: '6px'
   }
 
   return (
     <div>
-      {/* 入力フォームエリア */}
       <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
         <form onSubmit={onSubmitHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           
@@ -223,7 +203,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               placeholder="例: The Beatles" 
               required 
               maxLength={100} 
-              style={inputStyle} // ★スタイル適用
+              style={inputStyle} 
             />
           </div>
 
@@ -236,24 +216,28 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               placeholder="例: Across the Universe" 
               required 
               maxLength={100} 
-              style={inputStyle} // ★スタイル適用
+              style={inputStyle} 
             />
           </div>
 
-          <div style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'flex-start' }}>
-              <input type="checkbox" checked={isKnowledgeable} onChange={(e) => setIsKnowledgeable(e.target.checked)} style={{ transform: 'scale(1.2)', marginTop: '3px' }} />
-              <span style={{ fontSize: '14px', color: isKnowledgeable ? 'black' : '#888', fontWeight: isKnowledgeable ? 'bold' : 'normal' }}>
-                {isKnowledgeable ? "このアーティストについて、ファンである・ある程度曲を知っている。" : "このアーティストについて、あまり詳しくない（あまり曲を知らない）。"}
+          <div style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd' }}>
+             <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'center' }}>
+              <input 
+                type="checkbox" 
+                checked={isPassionate} 
+                onChange={(e) => setIsPassionate(e.target.checked)} 
+                style={{ transform: 'scale(1.2)' }} 
+              />
+              <span style={{ fontSize: '14px', fontWeight: isPassionate ? 'bold' : 'normal' }}>
+                熱量あり（ハート）をつける
+                <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
+                  ※ 現在 {passionateCount} / {MAX_PASSIONATE_LIMIT}
+                </span>
               </span>
             </label>
-            <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: 0 }} />
-            <label style={{ display: 'flex', gap: '10px', cursor: 'pointer', alignItems: 'flex-start' }}>
-              <input type="checkbox" checked={isPassionate} onChange={(e) => setIsPassionate(e.target.checked)} style={{ transform: 'scale(1.2)', marginTop: '3px' }} />
-              <span style={{ fontSize: '14px', color: isPassionate ? 'black' : '#888', fontWeight: isPassionate ? 'bold' : 'normal' }}>
-                {isPassionate ? "この曲は、結構こだわりのお気に入り曲。" : "1曲選ぶならこれだけど、そこまでこだわりは無いかも。"}
-              </span>
-            </label>
+            <p style={{ margin: '5px 0 0 24px', fontSize: '12px', color: '#666' }}>
+               特に思い入れの強い曲にチェックを入れてください。上限は{MAX_PASSIONATE_LIMIT}曲です。
+            </p>
           </div>
 
           <div>
@@ -264,7 +248,7 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
               onChange={(e) => setComment(e.target.value)} 
               placeholder="推薦コメント（140文字まで）" 
               maxLength={140} 
-              style={{ ...inputStyle, height: '80px' }} // ★スタイル適用（高さ指定だけ追加）
+              style={{ ...inputStyle, height: '80px' }} 
             />
           </div>
 
@@ -275,40 +259,23 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
         </form>
       </div>
       
-      {/* --- リスト表示エリア --- */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <h2>あなたの登録リスト（全{initialVotes.length}曲 / 表示{processedVotes.length}曲）</h2>
+        <h2>あなたの登録リスト（全{initialVotes.length}曲）</h2>
         
-        {/* ▼▼▼ フィルター操作エリア ▼▼▼ */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#f0f0f0', padding: '5px 10px', borderRadius: '20px' }}>
           <span style={{ fontSize: '12px', fontWeight: 'bold' }}>絞り込み:</span>
-          
-          {/* 知識フィルターボタン */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '12px' }}>知識</span>
-            <button 
-              onClick={() => toggleFilter(filterKnowledge, setFilterKnowledge)}
-              style={getFilterButtonStyle(filterKnowledge)}
-            >
-              {getFilterButtonContent(filterKnowledge, '🎓', '✖')}
-            </button>
-          </div>
-
-          {/* 熱量フィルターボタン */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ fontSize: '12px' }}>熱量</span>
             <button 
               onClick={() => toggleFilter(filterPassion, setFilterPassion)}
               style={getFilterButtonStyle(filterPassion)}
             >
-              {getFilterButtonContent(filterPassion, '❤️', '✖')}
+              {filterPassion === 'all' ? 'ー' : (filterPassion === 'true' ? '❤️' : '✖')}
             </button>
           </div>
         </div>
-        {/* ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ */}
       </div>
 
-      {/* ページネーション（上） */}
       {renderPagination()}
 
       <ul style={{ listStyle: 'none', padding: 0 }}>
@@ -327,25 +294,14 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
                 {vote.song}
               </span>
               
-              {/* アイコン（クリックでトグル） */}
-              <div style={{ display: 'flex', gap: '4px', marginLeft: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(vote.id, 'is_knowledgeable', vote.is_knowledgeable)}
-                  title={vote.is_knowledgeable ? "知識あり" : "詳しくない"}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em', opacity: vote.is_knowledgeable ? 1 : 0.3 }}
-                >
-                  {vote.is_knowledgeable ? '🎓' : '✖'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(vote.id, 'is_passionate', vote.is_passionate)}
-                  title={vote.is_passionate ? "熱量あり" : "こだわり薄"}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em', opacity: vote.is_passionate ? 1 : 0.3 }}
-                >
-                  {vote.is_passionate ? '❤️' : '✖'}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleToggle(vote.id, vote.is_passionate)}
+                title={vote.is_passionate ? "熱量あり（クリックで解除）" : "クリックで熱量ON"}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em', opacity: vote.is_passionate ? 1 : 0.2, marginLeft: '10px' }}
+              >
+                {vote.is_passionate ? '❤️' : '♡'}
+              </button>
             </div>
 
             <button 
@@ -353,7 +309,6 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
                 setArtist(vote.artist)
                 setSong(vote.song)
                 setComment(vote.comment || '')
-                setIsKnowledgeable(vote.is_knowledgeable)
                 setIsPassionate(vote.is_passionate)
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
@@ -365,7 +320,6 @@ export default function Dashboard({ initialVotes }: { initialVotes: Vote[] }) {
         ))}
       </ul>
       
-      {/* ページネーション（下） */}
       {renderPagination()}
     </div>
   )

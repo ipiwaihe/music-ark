@@ -5,12 +5,13 @@ import { cookies } from 'next/headers'
 import FilterToggleButton from '@/components/FilterToggleButton'
 
 type Props = {
-  // フォルダ名が [artistName] なので、ここは必ず artistName になります
+  // ★フォルダ名を [artistName] にしたので、ここも artistName で受け取れます
   params: Promise<{ artistName: string }> 
 }
 
 export default async function ArtistPage({ params }: Props) {
-  const { artistName } = await params
+  // ★変数名 artistName で統一
+  const { artistName } = await params 
   const decodedArtistName = decodeURIComponent(artistName)
   
   const supabase = await createClient()
@@ -18,26 +19,23 @@ export default async function ArtistPage({ params }: Props) {
 
   // 1. モード判定（リアルユーザーのみか、全部か）
   const isRealOnly = cookieStore.get('filter_mode')?.value !== 'all'
-
-  // 2. 使うViewを切り替え
-  // 全データなら song_stats, リアルのみなら song_stats_real
   const viewName = isRealOnly ? 'song_stats_real' : 'song_stats'
   
-  // 3. データ取得
+  // 2. データ取得
   const { data: songList, error } = await supabase
     .from(viewName)
     .select('*')
     .eq('artist', decodedArtistName)
-    .order('total_score', { ascending: false })  // 第1優先：スコア
-    .order('vote_count', { ascending: false })   // 第2優先：票数
-    .order('last_updated', { ascending: false }) // 第3優先：更新日時
+    .order('total_score', { ascending: false }) // 1. スコア高い順
+    .order('vote_count', { ascending: true })   // 2. 票数「少ない」順
+    .order('last_updated', { ascending: false }) // 3. 更新日新しい順
   
   if (error) {
     console.error(error)
     return <div>データ取得エラー</div>
   }
 
-  if (!songList) return <div>データが見つかりません</div>
+  // if (!songList) return <div>データが見つかりません</div>
 
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif', padding: '0 20px' }}>
@@ -61,16 +59,13 @@ export default async function ArtistPage({ params }: Props) {
       </p>
 
       <ul style={{ listStyle: 'none', padding: 0 }}>
-        {songList.map((item, index) => {
-          // 順位計算
+        {songList && songList.map((item, index) => {
           const rank = index + 1
-          // 1~3位の色分け
           const rankColor = rank === 1 ? '#d4af37' : (rank === 2 ? '#c0c0c0' : (rank === 3 ? '#cd7f32' : '#ddd'))
 
           return (
             <li key={item.song} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               
-              {/* 左側：順位・曲名・スコア */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ 
                   fontSize: '1.4em', fontWeight: 'bold', color: rankColor, 
@@ -85,7 +80,7 @@ export default async function ArtistPage({ params }: Props) {
                   </div>
                   <div style={{ fontSize: '0.9em', color: '#666', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ color: '#0070f3', fontWeight: 'bold' }}>
-                      {item.total_score.toFixed(2)} pt
+                      {item.total_score.toFixed(1)} pt
                     </span>
                     <span style={{ background: '#eee', padding: '1px 6px', borderRadius: '4px', fontSize: '0.85em' }}>
                       {item.vote_count}票
@@ -94,7 +89,6 @@ export default async function ArtistPage({ params }: Props) {
                 </div>
               </div>
               
-              {/* 右側：ボタンエリア */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <a 
                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent(decodedArtistName + ' ' + item.song)}`}
@@ -115,7 +109,7 @@ export default async function ArtistPage({ params }: Props) {
         })}
       </ul>
 
-      {songList.length === 0 && (
+      {(!songList || songList.length === 0) && (
         <p>条件に一致する曲がありません。</p>
       )}
     </div>
